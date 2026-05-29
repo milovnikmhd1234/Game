@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>CZ Bus Simulator 2D - Advanced</title>
+    <style>
+        * { box-sizing: border-box; font-family: 'Segoe UI', Arial, sans-serif; user-select: none; -webkit-user-select: none; }
+        body { margin: 0; padding: 0; background: #0c0f12; color: #f5f6f7; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; touch-action: manipulation; }
+        
+        #game-container { position: relative; width: 100vw; height: 100vh; max-width: 1024px; max-height: 600px; background: #000; overflow: hidden; border: 3px solid #232730; border-radius: 12px; box-shadow: 0 12px 40px rgba(0,0,0,0.6); }
+        
+        /* Obrazovky */
+        .screen { position: absolute; width: 100%; height: 100%; top: 0; left: 0; display: none; flex-direction: column; justify-content: flex-start; align-items: center; padding: 25px; background: radial-gradient(circle at center, #1a1f29 0%, #0a0d14 100%); z-index: 10; overflow-y: auto; }
+        .active { display: flex; }
+        
+        h1 { margin: 0 0 5px 0; color: #ffcc00; text-shadow: 0 3px 6px rgba(0,0,0,0.5); font-size: 26px; text-align: center; font-weight: 800; letter-spacing: 1px; }
+        .subtitle { color: #8a92a6; font-size: 13px; margin-bottom: 20px; }
+        h3 { margin: 5px 0 10px 0; font-size: 14px; color: #00ffaa; text-transform: uppercase; letter-spacing: 1px; border-bottom: 1px solid #232730; padding-bottom: 4px; }
+        
+        /* Horní lišta v Menu */
+        .top-bar { width: 100%; max-width: 800px; display: flex; justify-content: space-between; align-items: center; background: rgba(30,35,45,0.6); padding: 10px 20px; border-radius: 10px; border: 1px solid #232730; margin-bottom: 15px; font-size: 14px; }
+        .stats span { color: #ffcc00; font-weight: bold; margin-left: 5px; }
+
+        /* Hlavní rozcestník (Tabs) */
+        .menu-nav { display: flex; gap: 10px; margin-bottom: 15px; }
+        .nav-tab { padding: 10px 25px; background: #232730; border: none; color: #8a92a6; font-weight: bold; border-radius: 8px; cursor: pointer; transition: 0.2s; }
+        .nav-tab.active-tab { background: #ffcc00; color: #000; }
+
+        /* Obsahové panely */
+        .panel { display: none; width: 100%; max-width: 800px; background: rgba(20,24,33,0.7); border: 1px solid #232730; padding: 20px; border-radius: 12px; }
+        .panel.active-panel { display: block; }
+
+        /* Formuláře a Mřížky */
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        @media(max-width: 600px) { .grid-2 { grid-template-columns: 1fr; } }
+        .form-group { margin-bottom: 12px; }
+        label { display: block; margin-bottom: 5px; color: #8a92a6; font-size: 12px; font-weight: 600; }
+        input, select { width: 100%; padding: 11px; border: 2px solid #232730; background: #11141a; color: #fff; border-radius: 8px; font-size: 14px; }
+        input:focus, select:focus { border-color: #ffcc00; outline: none; }
+        
+        /* Tlačítka */
+        .btn { width: 100%; padding: 14px; background: #00cc66; border: none; color: #000; font-weight: bold; font-size: 15px; border-radius: 8px; cursor: pointer; margin-top: 10px; transition: 0.2s; }
+        .btn:hover { background: #00ff88; transform: translateY(-1px); }
+        .btn-yellow { background: #ffcc00; }
+        .btn-yellow:hover { background: #ffdd33; }
+        .btn-logout { background: #ff3355; color: white; padding: 6px 12px; font-size: 12px; width: auto; margin: 0; border-radius: 6px; }
+
+        /* Obchod s módy */
+        .shop-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; max-height: 250px; overflow-y: auto; padding-right: 5px; }
+        .shop-item { background: #161920; border: 1px solid #232730; padding: 12px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; }
+        .shop-item-info { display: flex; flex-direction: column; gap: 2px; }
+        .shop-item-title { font-weight: bold; font-size: 14px; color: #fff; }
+        .shop-item-price { font-size: 12px; color: #ffcc00; font-weight: 600; }
+        .btn-buy { padding: 6px 12px; background: #232730; color: #fff; border: none; font-size: 12px; font-weight: bold; border-radius: 6px; cursor: pointer; }
+        .btn-buy.owned { background: #00cc66; color: #000; cursor: default; }
+
+        /* Herní plátno a UI */
+        canvas { display: block; width: 100%; height: 100%; }
+        .touch-ui { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; display: none; }
+        .touch-ui.active-ui { display: block; }
+        .touch-btn { pointer-events: auto; position: absolute; background: rgba(16, 20, 26, 0.9); border: 2px solid #232730; color: white; border-radius: 14px; display: flex; justify-content: center; align-items: center; font-weight: bold; box-shadow: 0 6px 15px rgba(0,0,0,0.5); }
+        
+        #hud-top { position: absolute; top: 10px; left: 10px; background: rgba(10, 13, 20, 0.95); padding: 10px 15px; border-radius: 8px; font-size: 12px; border: 1px solid #232730; line-height: 1.4; }
+        #buse-screen { position: absolute; top: 10px; right: 10px; background: #000; border: 2px solid #ff9900; padding: 6px; border-radius: 8px; width: 180px; }
+        #buse-screen input { background: #050505; border: 1px solid #111; color: #ff9900; width: 100%; margin-top: 3px; padding: 3px; font-size: 12px; font-family: monospace; pointer-events: auto; text-transform: uppercase; }
+        
+        /* Pozice tlačítek za jízdy */
+        #btn-brake { bottom: 20px; right: 115px; width: 85px; height: 95px; background: linear-gradient(135deg, #cc0033 0%, #770011 100%); border-color: #ff3355; font-size: 11px; text-align: center; }
+        #btn-gas { bottom: 20px; right: 15px; width: 85px; height: 120px; background: linear-gradient(135deg, #00aa55 0%, #005522 100%); border-color: #22ff88; font-size: 11px; }
+        #btn-door { bottom: 20px; left: 15px; width: 100px; height: 80px; background: linear-gradient(135deg, #0055cc 0%, #002277 100%); border-color: #3388ff; text-align: center; font-size: 12px; }
+        #btn-exit { top: 10px; left: 260px; width: 65px; height: 38px; font-size: 12px; background: #232730; border-radius: 6px; }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <div id="screen-login" class="screen active">
+        <div style="margin-top: 40px;"></div>
+        <h1>CZ BUS SIMULATOR 2D</h1>
+        <div class="subtitle">Verze 2026 • Real-time dispečink</div>
+        <div class="form-group" style="width: 300px;">
+            <label>Jméno řidiče / ID:</label>
+            <input type="text" id="login-id" placeholder="Např. Jan_Novak">
+        </div>
+        <div class="form-group" style="width: 300px;">
+            <label>Heslo:</label>
+            <input type="password" id="login-pass" placeholder="••••••••">
+        </div>
+        <button id="btn-login" class="btn btn-yellow" style="width: 300px;">Vstoupit do služby</button>
+        <div id="login-error" class="error-msg"></div>
+    </div>
+
+    <div id="screen-menu" class="screen">
+        <div class="top-bar">
+            <div class="stats">Řidič: <span id="val-driver">-</span> | Konto: <span id="val-money">0 Kč</span></div>
+            <button id="btn-logout" class="btn-logout">Odhlásit se</button>
+        </div>
+
+        <div class="menu-nav">
+            <button id="tab-play" class="nav-tab active-tab">PLAY</button>
+            <button id="tab-mods" class="nav-tab">MODS (OBCHOD)</button>
+        </div>
+
+        <div id="panel-play" class="panel active-panel">
+            <h3>Konfigurace linky a vozu</h3>
+            <div class="grid-2">
+                <div class="form-group">
+                    <label>Město (Oblast):</label>
+                    <select id="select-city"></select>
+                </div>
+                <div class="form-group">
+                    <label>Reálná Linka:</label>
+                    <select id="select-line"></select>
+                </div>
+                <div class="form-group">
+                    <label>Autobus:</label>
+                    <select id="select-bus"></select>
+                </div>
+                <div class="form-group">
+                    <label>Nátěr / Repaint:</label>
+                    <select id="select-repaint"></select>
+                </div>
+            </div>
+            <button id="btn-start-game" class="btn btn-yellow">ZAHÁJIT SMLUVNÍ JÍZDU</button>
+        </div>
+
+        <div id="panel-mods" class="panel">
+            <h3>Obchod s modifikacemi (Kupuj za vydělané Kč)</h3>
+            <div class="shop-grid" id="shop-container">
+                </div>
+        </div>
+    </div>
+
+    <canvas id="gameCanvas" width="1024" height="600"></canvas>
+    
+    <div id="game-ui" class="touch-ui">
+        <div id="hud-top">
+            <strong>Řidič:</strong> <span id="hud-user">-</span><br>
+            <strong>Rychlost:</strong> <span id="hud-speed">0</span> km/h | <strong>Konto:</strong> <span id="hud-money">0 Kč</span><br>
+            <strong>Čas:</strong> <span id="hud-time" style="color:#00ffaa;">00:00:00</span><br>
+            <strong>Zastávka:</strong> <span id="hud-stop" style="color:#ffcc00;">-</span>
+        </div>
+
+        <div id="buse-screen">
+            <label style="color:#ff9900; font-size:10px; font-weight:bold;">Palubní počítač BUSE:</label>
+            <input type="text" id="panel-line" value="67" maxlength="4">
+            <input type="text" id="panel-dest" value="JUNDROV" maxlength="15">
+        </div>
+
+        <div id="btn-exit" class="touch-btn">MENU</div>
+        <div id="btn-door" class="touch-btn">DVEŘE<br><span id="door-status" style="font-size:10px;color:#ff3355;">ZAVŘENO</span></div>
+        <div id="btn-brake" class="touch-btn">BRZDA<br>ZPÁTEČKA</div>
+        <div id="btn-gas" class="touch-btn">PLYN</div>
+    </div>
+</div>
+
+<script>
+// --- HISTORIE / REÁLNÁ DATA LINKY ---
+const CITIES = {
+    "Brno": {
+        lines: {
+            "67": { desc: "Hlavní nádraží -> Jundrov", stops: ["Hlavní nádraží", "Malinovksého nám.", "Schodová", "Reissigova", "Skácelova", "Jundrov"], code: "67", dest: "JUNDROV" },
+            "E56": { desc: "Express: Nemocnice Bohunice -> Královo Pole", stops: ["Nemocnice Bohunice", "Campus Square", "Pisárky", "Skácelova", "Královo Pole nádraží"], code: "E56", dest: "KRÁLOVO POLE NÁDR." }
+        }
+    },
+    "Ostrava": {
+        lines: {
+            "78": { desc: "Poruba smyčka -> Hranečník", stops: ["Poruba,smyčka", "VŠB-TUO", "Svinov,mosty", "Nová Karolina", "Hranečník"], code: "78", dest: "HRANEČNÍK" },
+            "44": { desc: "Noční: ÚAN -> Dubina", stops: ["ÚAN", "Náměstí Republiky", "Dřevoprodej", "Dubina"], code: "44", dest: "DUBINA" }
+        }
+    },
+    "Opava": {
+        lines: {
+            "201": { desc: "Kateřinky -> Kylešovice", stops: ["Kateřinky,smyčka", "Divadlo", "Východní nádraží", "Kylešovice,škola"], code: "201", dest: "KYLEŠOVICE" },
+            "211": { desc: "Městský hřbitov -> Albert", stops: ["Městský hřbitov", "Praskova", "Divadlo", "Albert hypermarket"], code: "211", dest: "ALBERT HYPER." }
+        }
+    }
+};
+
+const BUS_DATABASE = [
+    { id: "sor_nb12", name: "SOR NB 12 (Městský)", maxSpeed: 4.8, color: "#009933", length: 125, premium: false },
+    { id: "skoda_21ab", name: "Škoda 21Ab (Klasika)", maxSpeed: 4.6, color: "#ffcc00", length: 125, premium: false },
+    { id: "karosa_b951", name: "Karosa B951", maxSpeed: 4.5, color: "#cc0000", length: 130, premium: false },
+    // Zamčené prémiové mody v obchodě
+    { id: "sor_ns18", name: "SOR NS 18 (Kloubový)", maxSpeed: 5.2, color: "#ffffff", length: 175, joints: true, premium: true, price: 1500 },
+    { id: "skoda_ecity", name: "Škoda E'City (Elektro)", maxSpeed: 5.5, color: "#ffffff", length: 130, premium: true, price: 2800 },
+    { id: "skoda_rto", name: "Škoda 706 RTO (Historický)", maxSpeed: 3.8, color: "#990000", length: 120, premium: true, price: 4000 }
+];
+
+const REPAINTS = [
+    { id: "standard", name: "Standardní tovární" },
+    { id: "dpmb", name: "DPMB (Brno - Bílá/Červená)" },
+    { id: "dpo", name: "DPO (Ostrava - Tyrkysová)" },
+    { id: "mdpo", name: "MDPO (Opava - Červená/Žlutá)" },
+    { id: "arriva", name: "Arriva Express (Modrá)" },
+    { id: "pid", name: "PID (Pražská Integrovaná - Pruhy)" },
+    { id: "flixbus", name: "FlixBus (Zářivě zelená)" }
+];
+
+// --- LOGIKA UKLÁDÁNÍ A PROFILU ---
+let uData = { password: "", money: 0, unlockedMods: [] };
+let activeUser = null;
+
+function saveProgress() {
+    if(!activeUser) return;
+    let allUsers = JSON.parse(localStorage.getItem("bus_sim_v3_users")) || {};
+    allUsers[activeUser] = uData;
+    localStorage.setItem("bus_sim_v3_users", JSON.stringify(allUsers));
+    
+    document.getElementById("val-money").textContent = uData.money + " Kč";
+    document.getElementById("hud-money").textContent = uData.money + " Kč";
+}
+
+// Inicializace prvků v menu
+const selectCity = document.getElementById("select-city");
+const selectLine = document.getElementById("select-line");
+const selectBus = document.getElementById("select-bus");
+const selectRepaint = document.getElementById("select-repaint");
+
+Object.keys(CITIES).forEach(c => selectCity.add(new Option(c, c)));
+REPAINTS.forEach(r => selectRepaint.add(new Option(r.name, r.id)));
+
+function updateLineSelect() {
+    selectLine.innerHTML = "";
+    let cityLines = CITIES[selectCity.value].lines;
+    Object.keys(cityLines).forEach(lk => {
+        selectLine.add(new Option(`Linka ${lk} (${cityLines[lk].desc})`, lk));
+    });
+}
+selectCity.addEventListener("change", updateLineSelect);
+
+function updateBusSelect() {
+    selectBus.innerHTML = "";
+    BUS_DATABASE.forEach(b => {
+        if (!b.premium || uData.unlockedMods.includes(b.id)) {
+            selectBus.add(new Option(b.name, b.id));
+        }
+    });
+}
+
+// --- OBCHOD S MÓDY (MODS PANEL) ---
+function renderShop() {
+    const container = document.getElementById("shop-container");
+    container.innerHTML = "";
+    
+    BUS_DATABASE.forEach(b => {
+        if(b.premium) {
+            let isOwned = uData.unlockedMods.includes(b.id);
+            let div = document.createElement("div");
+            div.className = "shop-item";
+            div.innerHTML = `
+                <div class="shop-item-info">
+                    <span class="shop-item-title">${b.name}</span>
+                    <span class="shop-item-price">${isOwned ? "Zakoupeno" : b.price + " Kč"}</span>
+                </div>
+                <button class="btn-buy ${isOwned ? 'owned' : ''}" onclick="buyMod('${b.id}', ${b.price})">${isOwned ? 'MÁŠ' : 'KUPIT'}</button>
+            `;
+            container.appendChild(div);
+        }
+    });
+}
+
+window.buyMod = function(id, price) {
+    if(uData.unlockedMods.includes(id)) return;
+    if(uData.money >= price) {
+        uData.money -= price;
+        uData.unlockedMods.push(id);
+        saveProgress();
+        renderShop();
+        updateBusSelect();
+    } else {
+        alert("Nedostatek peněz! Odřiď více linek pro získání financí.");
+    }
+};
+
+// --- AUTHENTIKACE ---
+document.getElementById("btn-login").addEventListener("click", () => {
+    let id = document.getElementById("login-id").value.trim().replace(/\s+/g, '_');
+    let pass = document.getElementById("login-pass").value.trim();
+    if(!id || !pass) { document.getElementById("login-error").textContent = "Zadej jméno a heslo!"; return; }
+
+    let allUsers = JSON.parse(localStorage.getItem("bus_sim_v3_users")) || {};
+    if(allUsers[id]) {
+        if(allUsers[id].password !== pass) { document.getElementById("login-error").textContent = "Chybné heslo!"; return; }
+        uData = allUsers[id];
+    } else {
+        uData = { password: pass, money: 200, unlockedMods: [] };
+    }
+    
+    activeUser = id;
+    document.getElementById("val-driver").textContent = id;
+    saveProgress();
+    updateLineSelect();
+    updateBusSelect();
+    renderShop();
+    switchScreen("screen-menu");
+});
+
+document.getElementById("btn-logout").addEventListener("click", () => { activeUser = null; switchScreen("screen-login"); });
+
+// Přepínání záložek PLAY / MODS
+document.getElementById("tab-play").addEventListener("click", () => {
+    document.getElementById("tab-play").classList.add("active-tab");
+    document.getElementById("tab-mods").classList.remove("active-tab");
+    document.getElementById("panel-play").classList.add("active-panel");
+    document.getElementById("panel-mods").classList.remove("active-panel");
+});
+document.getElementById("tab-mods").addEventListener("click", () => {
+    document.getElementById("tab-mods").classList.add("active-tab");
+    document.getElementById("tab-play").classList.remove("active-tab");
+    document.getElementById("panel-mods").classList.add("active-panel");
+    document.getElementById("panel-play").classList.remove("active-panel");
+    renderShop();
+});
+
+function switchScreen(id) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById("game-ui").classList.remove("active-ui");
+    if(id) document.getElementById(id).classList.add('active');
+}
+
+// --- AUDIO ENGINE ---
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+let engineOsc = null, engineGain = null;
+
+function startSound() {
+    if(engineOsc) return;
+    try {
+        engineOsc = audioCtx.createOscillator(); engineGain = audioCtx.createGain();
+        engineOsc.type = 'sawtooth'; engineOsc.frequency.setValueAtTime(32, audioCtx.currentTime);
+        engineGain.gain.setValueAtTime(0.04, audioCtx.currentTime);
+        engineOsc.connect(engineGain); engineGain.connect(audioCtx.destination);
+        engineOsc.start();
+    } catch(e){}
+}
+function updateSound(sp, mx) { if(engineOsc) engineOsc.frequency.setTargetAtTime(32 + (Math.abs(sp)/mx)*65, audioCtx.currentTime, 0.1); }
+function stopSound() { if(engineOsc) { try{engineOsc.stop();}catch(e){} engineOsc = null; } }
+
+// --- HRA A RENDER ---
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+
+let gameRunning = false, busX = 100, busSpeed = 0, currentStopIdx = 0;
+let activeLineData = null, activeBusData = null, selectedRepaintId = "standard";
+let gasPressed = false, brakePressed = false, doorsOpen = false, doorAnim = 0;
+let sceneObjects = [];
+
+function generateScene() {
+    sceneObjects = [];
+    for(let i=0; i<45; i++) {
+        sceneObjects.push({ x: 160 + i*230 + Math.random()*70, w: 75+Math.random()*45, h: 65+Math.random()*80, color: `hsl(${200+Math.random()*30}, 15%, ${20+Math.random()*15}%)` });
+    }
+}
+
+document.getElementById("btn-start-game").addEventListener("click", () => {
+    audioCtx.resume(); startSound();
+    
+    activeLineData = CITIES[selectCity.value].lines[selectLine.value];
+    activeBusData = BUS_DATABASE.find(b => b.id === selectBus.value);
+    selectedRepaintId = selectRepaint.value;
+    
+    // Přepsání BUSE palubního počítače
+    document.getElementById("panel-line").value = activeLineData.code;
+    document.getElementById("panel-dest").value = activeLineData.dest;
+    
+    currentStopIdx = 0; busX = 100; busSpeed = 0; doorsOpen = false; doorAnim = 0;
+    document.getElementById("hud-user").textContent = activeUser;
+    document.getElementById("hud-stop").textContent = activeLineData.stops[0];
+    
+    generateScene(); switchScreen("");
+    document.getElementById("game-ui").classList.add("active-ui");
+    gameRunning = true;
+    requestAnimationFrame(gameLoop);
+});
+
+// Dotykové vazby
+const bindTouch = (id, s, e) => {
+    let el = document.getElementById(id);
+    el.addEventListener("touchstart", (ev)=>{ ev.preventDefault(); s(); });
+    el.addEventListener("touchend", (ev)=>{ ev.preventDefault(); e(); });
+    el.addEventListener("mousedown", s); el.addEventListener("mouseup", e);
+};
+bindTouch("btn-gas", () => gasPressed = true, () => gasPressed = false);
+bindTouch("btn-brake", () => brakePressed = true, () => brakePressed = false);
+
+document.getElementById("btn-door").addEventListener("click", () => {
+    if(busSpeed === 0) {
+        let targetX = 450 + currentStopIdx*950;
+        if(Math.abs((busX + activeBusData.length/2) - targetX) < 95) {
+            doorsOpen = !doorsOpen;
+            document.getElementById("door-status").textContent = doorsOpen ? "NASTUPOVÁNÍ" : "ZAVŘENO";
+            document.getElementById("door-status").style.color = doorsOpen ? "#00ffaa" : "#ff3355";
+        }
+    }
+});
+document.getElementById("btn-exit").addEventListener("click", () => { gameRunning = false; stopSound(); switchScreen("screen-menu"); });
+
+// Hlavní výpočetní smyčka
+function gameLoop() {
+    if(!gameRunning) return;
+
+    // Fyzika Brzda / Zpátečka
+    if(gasPressed && !doorsOpen) {
+        if(busSpeed < 0) busSpeed += 0.15;
+        else { busSpeed += 0.06; if(busSpeed > activeBusData.maxSpeed) busSpeed = activeBusData.maxSpeed; }
+    } else if(brakePressed) {
+        if(busSpeed > 0) { busSpeed -= 0.14; if(busSpeed < 0) busSpeed = 0; }
+        else { busSpeed -= 0.04; if(busSpeed < -1.8) busSpeed = -1.8; }
+    } else {
+        if(busSpeed > 0) { busSpeed -= 0.02; if(busSpeed < 0) busSpeed = 0; }
+        if(busSpeed < 0) { busSpeed += 0.02; if(busSpeed > 0) busSpeed = 0; }
+    }
+    busX += busSpeed;
+    document.getElementById("hud-speed").textContent = Math.round(Math.abs(busSpeed)*16);
+    updateSound(busSpeed, activeBusData.maxSpeed);
+
+    // Reálný čas na displeji
+    let d = new Date();
+    document.getElementById("hud-time").textContent = d.toTimeString().split(' ')[0];
+
+    // Animace křídel dveří
+    if(doorsOpen && doorAnim < 1) doorAnim += 0.06;
+    else if(!doorsOpen && doorAnim > 0) doorAnim -= 0.06;
+
+    // Kontrola odjezdu ze zastávky (připsání odměny)
+    if(!doorsOpen && doorAnim <= 0) {
+        let targetX = 450 + currentStopIdx*950;
+        if(Math.abs((busX + activeBusData.length/2) - targetX) < 95 && Math.abs(busSpeed) > 0.4) {
+            currentStopIdx++;
+            uData.money += 150; // Výplata za zastávku
+            saveProgress();
+            if(currentStopIdx >= activeLineData.stops.length) {
+                alert("Dosáhl jsi konečné stanice! Bonus za celou linku: 400 Kč");
+                uData.money += 400; saveProgress();
+                document.getElementById("btn-exit").click(); return;
+            }
+            document.getElementById("hud-stop").textContent = activeLineData.stops[currentStopIdx];
+        }
+    }
+
+    // --- VYKRESLOVÁNÍ GRAFIKY ---
+    let camX = busX - 220;
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+
+    // Obloha a horizont
+    let sky = ctx.createLinearGradient(0,0,0,350); sky.addColorStop(0,'#131924'); sky.addColorStop(1,'#222c3c');
+    ctx.fillStyle = sky; ctx.fillRect(0,0,canvas.width,350);
+    ctx.fillStyle = "#161b24"; ctx.fillRect(0,350,canvas.width,250);
+    ctx.fillStyle = "#0c0d12"; ctx.fillRect(0,380,canvas.width,130);
+    ctx.fillStyle = "#ffcc00"; ctx.fillRect(0,377,canvas.width,3);
+
+    // Budovy městského centra
+    sceneObjects.forEach(h => {
+        let rx = h.x - camX;
+        if(rx > -150 && rx < canvas.width + 150) {
+            ctx.fillStyle = h.color; ctx.fillRect(rx, 350 - h.h, h.w, h.h);
+            ctx.fillStyle = "rgba(255,235,170,0.8)";
+            for(let wy = 365 - h.h; wy < 335; wy += 24) {
+                for(let wx = rx + 10; wx < rx + h.w - 15; wx += 18) { ctx.fillRect(wx, wy, 8, 12); }
+            }
+        }
+    });
+
+    // Reálné zastávkové označníky
+    activeLineData.stops.forEach((name, idx) => {
+        let sx = 450 + idx*950 - camX;
+        if(sx > -200 && sx < canvas.width + 200) {
+            let isCurrent = (idx === currentStopIdx);
+            ctx.fillStyle = "rgba(35,45,60,0.5)"; ctx.fillRect(sx - 45, 305, 90, 45);
+            ctx.strokeStyle = "#405065"; ctx.lineWidth = 2; ctx.strokeRect(sx - 45, 305, 90, 45);
+            ctx.fillStyle = "#ffcc00"; ctx.fillRect(sx + 50, 265, 4, 85);
+            ctx.fillStyle = isCurrent ? "#ffcc00" : "#ffffff"; ctx.fillRect(sx + 43, 265, 18, 18);
+            ctx.fillStyle = "#000"; ctx.font = "bold 9px Arial"; ctx.fillText("BUS", sx+45, 277);
+            ctx.fillStyle = isCurrent ? "#ffcc00" : "#ffffff"; ctx.font = "bold 12px 'Segoe UI'";
+            ctx.fillText(name, sx - 45, 255);
+        }
+    });
+
+    // --- LOGIKA REPAINTŮ (Určení barevného schématu) ---
+    let cMain = activeBusData.color;
+    let cStrip = activeBusData.color;
+    let hasStrips = false;
+
+    if(selectedRepaintId === "dpmb") { cMain = "#ffffff"; cStrip = "#cc0000"; hasStrips = true; }
+    else if(selectedRepaintId === "dpo") { cMain = "#00a2e8"; cStrip = "#ffffff"; hasStrips = true; }
+    else if(selectedRepaintId === "mdpo") { cMain = "#ffcc00"; cStrip = "#cc0000"; hasStrips = true; }
+    else if(selectedRepaintId === "arriva") { cMain = "#005566"; cStrip = "#00aabb"; hasStrips = true; }
+    else if(selectedRepaintId === "flixbus") { cMain = "#73c000"; cStrip = "#ff5500"; hasStrips = true; }
+    else if(selectedRepaintId === "pid") { cMain = "#ffffff"; cStrip = "#cc0000"; hasStrips = "stripes"; }
+
+    // Vykreslení těla vozu
+    let bx = busX - camX;
+    ctx.fillStyle = "rgba(0,0,0,0.35)"; ctx.fillRect(bx-5, 477, activeBusData.length+10, 10); // stín
+    ctx.fillStyle = cMain; ctx.fillRect(bx, 395, activeBusData.length, 80);
+
+    // Repaint prvky / pruhy
+    if(hasStrips === true) {
+        ctx.fillStyle = cStrip; ctx.fillRect(bx, 445, activeBusData.length, 12);
+    } else if(hasStrips === "stripes") { // Speciální vertikální PID pruhy
+        ctx.fillStyle = cStrip;
+        for(let sx = bx + 5; sx < bx + activeBusData.length; sx += 25) { ctx.fillRect(sx, 395, 10, 80); }
+    }
+
+    // Masky, okna a detaily nárazníků
+    ctx.fillStyle = "#161920"; ctx.fillRect(bx, 468, activeBusData.length, 7); // dolní lišta
+    ctx.fillStyle = "#fff"; ctx.fillRect(bx + activeBusData.length - 2, 452, 2, 7); // světlo přední
+    ctx.fillStyle = brakePressed ? "#ff1133" : "#aa0011"; ctx.fillRect(bx, 452, 2, 8); // světlo zadní
+    if(busSpeed < 0) { ctx.fillStyle = "#ffffff"; ctx.fillRect(bx, 461, 2, 4); } // couvačka
+
+    // Okna
+    ctx.fillStyle = "#11141a"; ctx.fillRect(bx + activeBusData.length - 24, 403, 22, 34);
+    ctx.fillStyle = "#5588bb"; ctx.fillRect(bx + activeBusData.length - 20, 405, 17, 30);
+    ctx.fillStyle = "#11141a"; ctx.fillRect(bx + 10, 403, activeBusData.length - 40, 24);
+    ctx.fillStyle = "#5588bb";
+    let wc = activeBusData.joints ? 6 : 4;
+    for(let i=0; i<wc; i++) {
+        let wx = bx + 14 + (i*23); if(activeBusData.joints && i>=4) wx += 16;
+        ctx.fillRect(wx, 405, 19, 20);
+    }
+
+    // Kloubák harmonika
+    if(activeBusData.joints) {
+        ctx.fillStyle = "#15181f"; ctx.fillRect(bx + 103, 395, 16, 79);
+        ctx.fillStyle = "#282e3d"; for(let k=395; k<475; k+=6) ctx.fillRect(bx+103, k, 16, 2);
+    }
+
+    // Animovaná křídla nastupování
+    let dX1 = bx + 35, dX2 = bx + activeBusData.length - 55;
+    ctx.fillStyle = "#11141a"; ctx.fillRect(dX1, 428, 20, 42); ctx.fillRect(dX2, 428, 20, 42);
+    ctx.fillStyle = cMain; ctx.strokeStyle = "#111"; ctx.lineWidth = 1;
+    ctx.fillRect(dX1 - (9*doorAnim), 428, 10, 42); ctx.strokeRect(dX1 - (9*doorAnim), 428, 10, 42);
+    ctx.fillRect(dX1 + 10 + (9*doorAnim), 428, 10, 42); ctx.strokeRect(dX1 + 10 + (9*doorAnim), 428, 10, 42);
+    ctx.fillRect(dX2 - (9*doorAnim), 428, 10, 42); ctx.strokeRect(dX2 - (9*doorAnim), 428, 10, 42);
+    ctx.fillRect(dX2 + 10 + (9*doorAnim), 428, 10, 42); ctx.strokeRect(dX2 + 10 + (9*doorAnim), 428, 10, 42);
+
+    // Kola
+    const wh = (x) => {
+        ctx.fillStyle = "#11141a"; ctx.beginPath(); ctx.arc(x, 475, 15, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = "#7f8c8d"; ctx.beginPath(); ctx.arc(x, 475, 6, 0, Math.PI*2); ctx.fill();
+    };
+    wh(bx + 26); wh(bx + activeBusData.length - 30);
+    if(activeBusData.joints) wh(bx + 95);
+
+    // BUSE digitální panel vozu
+    ctx.fillStyle = "#000"; ctx.fillRect(bx + activeBusData.length - 68, 397, 60, 8);
+    ctx.fillStyle = "#ff9900"; ctx.font = "bold 7px monospace";
+    ctx.fillText(`${document.getElementById("panel-line").value} ${document.getElementById("panel-dest").value}`.substring(0,14), bx + activeBusData.length - 66, 404);
+
+    requestAnimationFrame(gameLoop);
+}
+</script>
+</body>
+</html>
