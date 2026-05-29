@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HTML & JS Balíčkovač souborů</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f7f6;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+        }
+        .container {
+            width: 100%;
+            max-width: 800px;
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2c3e50;
+            margin-top: 0;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 8px;
+            color: #34495e;
+        }
+        input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            box-sizing: border-box;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+        textarea {
+            width: 100%;
+            height: 300px;
+            padding: 10px;
+            box-sizing: border-box;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 14px;
+            resize: vertical;
+        }
+        button {
+            background-color: #2ecc71;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 4px;
+            cursor: pointer;
+            width: 100%;
+            transition: background 0.2s;
+        }
+        button:hover {
+            background-color: #27ae60;
+        }
+        .note {
+            font-size: 13px;
+            color: #7f8c8d;
+            margin-top: 15px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Kódový Balíčkovač</h1>
+    <p>Vlož svůj kód níže, pojmenuj ho a stáhni si ho jako hotový soubor pro aplikaci Soubory.</p>
+    
+    <div class="form-group">
+        <label for="filename">Název souboru (včetně přípony):</label>
+        <input type="text" id="filename" value="index.html" placeholder="např. moje_aplikace.html">
+    </div>
+
+    <div class="form-group">
+        <label for="codecontent">Tvůj HTML / JS / CSS Kód:</label>
+        <textarea id="codecontent" placeholder="Sem vlož nebo napiš svůj kód..."></textarea>
+    </div>
+
+    <button onclick="stahnoutSoubor()">Vytvořit a stáhnout soubor</button>
+
+    <div class="note">
+        <strong>Tip:</strong> Stažený soubor najdeš ve složce Stahování (Downloads). Na mobilu ho pak můžeš přesunout kamkoliv v aplikaci Soubory a přímo na něj kliknout pro spuštění.
+    </div>
+</div>
+
+<script>
+function stahnoutSoubor() {
+    // 1. Získání hodnot z formuláře
+    const nazevSouboru = document.getElementById('filename').value.trim();
+    const obsahSouboru = document.getElementById('codecontent').value;
+
+    // Kontrola, zda uživatel zadal název
+    if (!nazevSouboru) {
+        alert('Prosím, zadej název souboru.');
+        return;
+    }
+
+    // 2. Vytvoření "Blob" objektu s textovým obsahem (nastaveno jako plain text/html)
+    const blob = new Blob([obsahSouboru], { type: 'text/html;charset=utf-8' });
+
+    // 3. Vytvoření dočasného skrytého odkazu (linku) pro stažení
+    const odkaz = document.createElement('a');
+    odkaz.href = URL.createObjectURL(blob);
+    odkaz.download = nazevSouboru;
+
+    // 4. Automatické kliknutí na odkaz a jeho následné smazání
+    document.body.appendChild(odkaz);
+    odkaz.click();
+    document.body.removeChild(odkaz);
+
+    // Čištění paměti
+    URL.revokeObjectURL(odkaz.href);
+}
+</script>
+
+</body>
+</html>
